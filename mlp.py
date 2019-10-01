@@ -33,6 +33,25 @@ def net_error(tar, out):
 
     return (err)
 
+# Graph error
+def graph_error(err_vector):
+    plt.figure(0)
+    plt.plot(err_vector)
+    plt.xlabel("Epochs")
+    plt.ylabel("Error")
+    plt.title("Back-Propagation algortihm")
+    plt.show()
+
+# Testing patterns
+def testing_patterns(X, t, layers, weights, bias):
+    print('===== MLP result ===')
+    print('Pat:   t:     out:')
+    count = 0
+    for x in X:
+        a = feed_forward(x, layers, weights, bias)
+        a_N = a[len(a) -1][0]
+        print('{}. {} ---- {} ----> {:.3f}'.format(count, x, t[count], float(a_N)))
+        count +=1
 
 """
 #feed forward
