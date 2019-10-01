@@ -14,13 +14,17 @@ def get_dataset():
         if len(line) > 1:
             x_0, x_1, x_2, x_3, y = line.replace('\n','').split(',')
             dataset['input'].append([float(x_0), float(x_1), float(x_2), float(x_3)])
-            
+
             index= {
                 'Iris-setosa': 0,
                 'Iris-versicolor': 1,
                 'Iris-virginica': 2,
             }
-            dataset['output'].append(index[y])
-    return dataset
+            if y == 'Iris-setosa':
+                dataset['output'].append([1,0,0])
+            if y == 'Iris-versicolor':
+                dataset['output'].append([0,1,0])
+            if y == 'Iris-virginica':
+                dataset['output'].append([0,0,1])
 
-get_dataset()
+    return dataset
