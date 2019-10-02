@@ -1,164 +1,124 @@
-"""
-Multi-layer perceptron
-"""
-
 import numpy as np
 import matplotlib.pyplot as plt
-import copy
 %matplotlib qt
 
-"""
-initialize the weights matrice with random values on a normal distribution
-"""
-def init_weights(x, layers):
-    weights = []
-    weights.append(np.random.normal(0,0.1, (layers[0], len(x))))
+class MLP:
+    """Class defining a neural network using back propagation"""
 
+    def __init__(self, layers):
+        """layers is initialized as a list(input_layer, ...hidden_layers..., output_layers)"""
+        self.n_layers = len(layers) - 1
+        self.layers = layers
+        self.initialize_weights()
+        self.actual_output = 0
 
-    for layer in range(1, len(layers)):
-        weights.append(np.random.normal(0,0.1, (layers[layer], layers[layer -1])))
+    def initialize_weights(self):
+        """generate weights and biases for hidden layers
+        in a standard gaussian distribution  mean 0 deviation 1"""
+        self.biases = [np.random.randn(1, y) for y in self.layers[1:]]
+        self.weights = [np.random.randn(y, x) for x, y in zip(self.layers[:-1], self.layers[1:])]
 
-    return (weights)
+    def sigmoid(self, x):
+        """The sigmoid function"""
+        return 1 / (1 + np.exp(-x))
 
+    def derivative(self, sig_x):
+        """return the derivative of sig_x"""
+        return sig_x*(1 - sig_x)
 
-#Sigmoid function
-def sigmoid(x):
-    sig = 1 / (1+ np.exp(-x))
+    def net_error(self, tar, out):
+        """compute the network error"""
+        err = 0.5*np.power(tar - out, 2)
 
-    return (sig)
+        return err
 
-#Network error
-def net_error(tar, out):
-    err = 0.5 * np.power(tar - out, 2)
+    def graph_error(self, err_vector):
+        """display graphical error"""
+        plt.figure(0)
+        plt.plot(err_vector)
+        plt.xlabel("Epochs")
+        plt.ylabel("Error")
+        plt.title("Back-Propagation algortihm")
+        plt.show()
 
-    return (err)
+    def testing_patterns(self, input, target):
+        """return the response for the patterns"""
+        print('====== MLP result ======')
+        print('Pat:    t:    out:')
+        count = 0
+        for i in input:
+            output = self.feed_forward(i)[-1][0]
+            if not hasattr(target[count], '__len__'):
+                print('{}. {} ---- {} ----> {:.3f}'.format(count, i, target[count], float(output)))
+            else:
+                count_2 = 0
+                for o in output:
+                    print('{}. {} ---- {} ----> {:.3f}'.format(count, i, target[count][count_2], float(o)))
+                    count_2 += 1
+            count += 1
 
-# Graph error
-def graph_error(err_vector):
-    plt.figure(0)
-    plt.plot(err_vector)
-    plt.xlabel("Epochs")
-    plt.ylabel("Error")
-    plt.title("Back-Propagation algortihm")
-    plt.show()
+    def feed_forward(self, input):
+        """the feed forward function"""
+        self.layers_output = []
 
-# Testing patterns
-def testing_patterns(X, t, layers, weights, bias):
-    print('===== MLP result ===')
-    print('Pat:   t:     out:')
-    count = 0
-    for x in X:
-        a = feed_forward(x, layers, weights, bias)
-        a_N = a[len(a) -1][0]
-        print('{}. {} ---- {} ----> {:.3f}'.format(count, x, t[count], float(a_N)))
-        count +=1
+        for index in range(self.n_layers):
+            if index == 0:
+                z = np.dot(input, self.weights[index].T) + self.biases[index]
+                self.layers_output.append(self.sigmoid(z))
+            else:
+                z = np.dot(self.layers_output[index -1], self.weights[index].T) + self.biases[index]
+                self.layers_output.append(self.sigmoid(z))
 
-"""
-#feed forward
+        return self.layers_output
 
-x: input vector
-layers: [nb_node_layer_1, nb_node_layer_2, ...]
-weights: [[w_layer_1:[w_node_1],[w_node_2]], [w_layer_2:[w_node_1],[w_node_2]]]
-bias: [b_layer_1, b_layer_2]
-"""
-def feed_forward(x, layers, weights, bias):
-    nb_layers = len(layers)
-    a= []
+    def back_propagation(self, input, target, trainingRate = 0.2):
+        """the back_propagation function"""
+        l_errors = []
 
-    z = np.dot(x, weights[0].T) + bias[0]
-    a.append(sigmoid(z))
+        #feed forward
+        self.feed_forward(input)
 
-    for layer in range(1, len(layers)):
-        multiply = np.dot(a[layer -1], weights[layer].T)
-        z =  multiply + bias[layer]
-        a.append(np.array(sigmoid(z)))
-    return a
+        # compute l_errors
+        for index in reversed(range(self.n_layers)):
+            if index == self.n_layers - 1:
+                sig_prim = self.derivative(self.layers_output[index])
+                output_delta = -(target - self.layers_output[index])*sig_prim
+                l_errors.append(output_delta)
+            else:
+                hidden_delta = np.dot(l_errors[-1], self.weights[index+1])
+                l_errors.append(hidden_delta*self.derivative(self.layers_output[index]))
 
-#Back-propagation
-def back_propagation(x, tar, weights, bias, layers):
+        l_errors = l_errors[::-1]
+        self.layers_output.insert(0, input)
 
-    n_layers = len(layers)
-    # output layer error
-    L_layer = layers[n_layers - 1]
+        # new biases and weights
+        for index in range(self.n_layers ):
+            multiply = np.multiply(l_errors[index].T, self.layers_output[index])
+            self.weights[index] = self.weights[index] - trainingRate*multiply
+            self.biases[index] = self.biases[index] - trainingRate*l_errors[index]
 
-    #L_error value is (0.5(sigmoid(s_1) - target)^2)'
-    # the derivative value: (1-sigmoid^2(s))(sigmoid(s) - tar)
-    # -(tar - a_L)*a_L*(1-a_L)
-    L_error = -(tar - L_layer)*L_layer*(1 - L_layer)
+        return (self.weights, self.biases)
 
+    def main(self, epochs, trainingRate, input, target):
+        err_vector = []
 
-    # hidden layers errors
-    # l_errors[layer -1] = l_sum*layers[layer -1 ]*(1- layers[layer -1])
-    l_errors = [0 for i in range(n_layers)]
-    l_errors[n_layers -1] = L_error
+        for epoch in range(epochs):
+            count = 0
+            err = 0
 
-    for layer in range(n_layers - 1, 0, -1):
-        l_weights = weights[layer]
+            for x in input:
 
-        #sumarize
-        l_sum = []
-        for weight in l_weights.T:
-             l_sum.append(np.sum(weight*l_errors[layer]))
-        l_sum = np.array(l_sum)
+                #back propagation
+                self.back_propagation(x, target[count], trainingRate)
 
+                #net error
+                err+= self.net_error(target[count], self.layers_output[-1][0])
 
-        # compute the previous l_error vector
-        l_errors[layer -1] = l_sum*layers[layer -1 ]*(1- layers[layer -1])
+                count +=1
+            err_vector.append(err / input.shape[0])
 
-    # New weights and bias
-    my_layers = copy.deepcopy(layers)
-    my_layers.insert(0, x)
+        #graph error
+        self.graph_error(err_vector)
 
-    n_weights = [0]*(len(my_layers) -1 )
-    n_bias = [0]*(len(my_layers) - 1)
-    for i in range(len(n_weights)):
-        non_reshaped_l_errors = l_errors[i]
-        l_errors[i] = np.reshape(l_errors[i], (len(l_errors[i]), 1))
-        my_layers[i] = np.reshape(my_layers[i],(len(my_layers[i]),1))
-        n_weights[i] = weights[i] - alpha*np.multiply(l_errors[i], my_layers[i].T)
-        n_bias[i] = bias[i] - alpha*non_reshaped_l_errors
-
-    return (n_weights, n_bias)
-
-
-#################
-# MAIN PART
-#################
-
-X = np.array([[0,0], [0,1], [1,0], [1,1]])
-tar = np.array([0,1,1,0])
-
-layers = [2, 1]
-alpha = 0.5
-epochs = 8000
-
-bias = [np.random.normal(0,0.1, layers[i]) for i in range(len(layers))]
-weights = init_weights(X[0], layers)
-
-err_vector = []
-
-print("start")
-for epoch in range(epochs):
-    count = 0
-    err = 0
-
-    for my_x in X:
-        #feed_forward
-        a = feed_forward(my_x, layers, weights, bias)
-
-
-        #Net error
-        err += net_error(tar[count], a[len(a) -1])
-
-        #back propagation
-        weights, bias = back_propagation(my_x, tar[count], weights, bias, a)
-
-        count +=1
-
-    err_vector.append(err / X.shape[0])
-
-#graph error
-graph_error(err_vector)
-
-#testing patterns
-testing_patterns(X, tar, layers, weights, bias)
+        #testings patterns
+        self.testing_patterns(input, target)
